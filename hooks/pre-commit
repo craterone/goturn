@@ -1,4 +1,4 @@
 #!/bin/bash
 echo "update config.json.backup"
 cp config.json config.json.backup
-git add .
+git add .git

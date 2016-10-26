@@ -1,7 +1,0 @@
-{
-  "realm":"stun1.com",
-  "logLevel":"verbose",
-  "logToFile":false,
-  "logFilePath":"signal.log",
-  "errLogFilePath":"signal_err.log"
-}
