@@ -37,7 +37,7 @@ func initGlobal()  {
 	AllocateMutex = new(sync.Mutex)
 	ServerAddress = new(net.UDPAddr)
 	ServerAddress.Port = 3478
-	ServerAddress.IP = net.ParseIP("192.168.1.26").To4()
+	ServerAddress.IP = net.ParseIP(getRelayAddress()).To4()
 }
 
 
