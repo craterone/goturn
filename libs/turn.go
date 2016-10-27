@@ -61,10 +61,6 @@ func messageIntegrityCalculate(username string,responseMessage *Message) (respon
 	return response,nil
 }
 
-var (
-	xxxxx = 0;
-	xxxxaaa = []int{11111,11112,11113}
-)
 func turnMessageHandle(requestMessage *Message,clientAddr *net.UDPAddr,tcp bool) ([]byte, error) {
 
 	switch requestMessage.MessageType {
@@ -77,10 +73,7 @@ func turnMessageHandle(requestMessage *Message,clientAddr *net.UDPAddr,tcp bool)
 			//todo : add check
 			usernameStr := string(usernameAttr.Value)
 
-
-			relayPort := xxxxaaa[xxxxx]
-			xxxxx++
-			//relayPort := RelayPortPool.RandSelectPort()
+			relayPort := RelayPortPool.RandSelectPort()
 			relayAddress := getRelayAddress()
 
 			peerAddress := new(net.UDPAddr)
@@ -137,6 +130,29 @@ func turnMessageHandle(requestMessage *Message,clientAddr *net.UDPAddr,tcp bool)
 			return response,nil
 		}
 	case TypeCreatePermission:
+
+		clientAddress := clientAddr.String()
+
+		allocate := GlobalAllocates[clientAddress]
+
+		if allocate.Peer != nil {
+			peerAddress := requestMessage.getAttribute(AttributeXorPeerAddress)
+
+			if peerAddress != nil {
+				port, address := unXorAddress(peerAddress.Value)
+				//relayAddress := fmt.Sprintf("%s:%d",net.IP(address),port)
+
+				relayAddress := new(net.UDPAddr)
+				relayAddress.Port = int(port)
+				relayAddress.IP = address
+
+				allocate.Peer.RelayAddress = relayAddress
+
+
+				Log.Infof("relay address : %s , peer addres : %s",relayAddress,allocate.PeerAddress.String())
+			}
+		}
+
 		respMsg := NewResponse(TypeCreatePermissionResponse,requestMessage.TransID,
 			AttrSoftware,
 			AttrDummyMessageIntegrity,
@@ -182,29 +198,13 @@ func turnRelayMessageHandle(requestMessage *Message,clientAddr *net.UDPAddr,tcp 
 
 	switch requestMessage.MessageType {
 	case TypeSendIndication:
+		//todo : check permission
+
 		clientAddress := clientAddr.String()
 
 		allocate := GlobalAllocates[clientAddress]
 
 		if allocate.Peer != nil{
-			if allocate.Peer.RelayAddress == nil {
-				peerAddress := requestMessage.getAttribute(AttributeXorPeerAddress)
-
-				if peerAddress != nil {
-					port, address := unXorAddress(peerAddress.Value)
-					//relayAddress := fmt.Sprintf("%s:%d",net.IP(address),port)
-
-					relayAddress := new(net.UDPAddr)
-					relayAddress.Port = int(port)
-					relayAddress.IP = address
-
-					allocate.Peer.RelayAddress = relayAddress
-
-
-					Log.Infof("relay address : %s , peer addres : %s",relayAddress,allocate.PeerAddress.String())
-				}
-
-			}
 
 			requestMessage.setAttribute(newAttrXORPeerAddress(allocate.PeerAddress.IP.String(),allocate.PeerAddress.Port))
 
