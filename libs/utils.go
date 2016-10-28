@@ -12,6 +12,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/binary"
+	"time"
 )
 
 func HmacSha1(value,key []byte) []byte {
@@ -106,7 +107,10 @@ func IsValidIPv4(host string) bool {
 }
 
 func RandIntRange(max,min int) int   {
-	return mrand.Intn(max - min) + min
+	mrand.Seed(time.Now().UnixNano())
+	num := mrand.Intn(max - min) + min
+	Log.Infof("random :%d",num)
+	return num
 }
 
 func parseAddressV4(strAddress string) *net.UDPAddr {

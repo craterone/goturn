@@ -16,7 +16,7 @@ type Entry struct {
 
 func LoadEntryModule()  {
 
-	entry := NewEntry(3478)
+	entry := NewEntry(*server_port)
 	entry.Serve()
 }
 
