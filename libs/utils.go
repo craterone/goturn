@@ -16,6 +16,36 @@ import (
 	"unsafe"
 )
 
+
+
+func getRelayAddress() (raddr net.IP) {
+	if external_ip != nil{
+		if IsValidIPv4(*external_ip) {
+			raddr =  net.ParseIP(*external_ip).To4()
+			return
+		}
+	}
+
+	ipAddress , err := HostIP()
+	if err != nil {
+		raddr = net.ParseIP("110.110.110.110").To4()
+		Log.Error("Can not find relay address")
+	}else{
+		raddr = ipAddress
+	}
+	return
+}
+
+func strBytes2Int64(b []byte) int64   {
+	var x int64
+	for _, c := range b {
+		x = x*10 + int64(c - '0')
+	}
+	return x
+}
+
+
+
 func HmacSha1(value,key []byte) []byte {
 	hasher := hmac.New(sha1.New,key)
 	hasher.Write(value)
@@ -46,7 +76,7 @@ func PrintModuleRelease(moduleName string)  {
 	log.Printf("< %s > module releases successfully",moduleName)
 }
 
-func HostIP() (ipAddress string, err error) {
+func HostIP() (ipAddress net.IP, err error) {
 	var ifaces []net.Interface
 	ifaces, err = net.Interfaces()
 	if err != nil {
@@ -79,7 +109,7 @@ func HostIP() (ipAddress string, err error) {
 			if ip == nil {
 				continue // not an ipv4 address
 			}
-			ipAddress = ip.String()
+			ipAddress = ip
 			return
 		}
 	}

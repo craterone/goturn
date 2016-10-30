@@ -21,15 +21,18 @@ var (
 	AttrError401 = newAttrError401()
 	AttrLifetime = newAttrLifetime()
 	AttrDummyMessageIntegrity = newAttrNoValue(AttributeMessageIntegrity)
+	AttrNonce = newAttrNonce()
 )
 
-func xorAddress(port uint16, addr []byte) []byte {
+func xorAddress(port int, addr []byte) []byte {
 
 	xport := make([]byte, 2)
-	xaddr := make([]byte, 4)
-	binary.BigEndian.PutUint16(xport, port^uint16(magicCookie>>16))
-	binary.BigEndian.PutUint32(xaddr, binary.BigEndian.Uint32(addr)^magicCookie)
-	return append(xport, xaddr...)
+	xip := make([]byte, 4)
+	binary.BigEndian.PutUint16(xport, uint16(port^magicCookie>>16))
+	binary.BigEndian.PutUint32(xip, binary.BigEndian.Uint32(addr)^magicCookie)
+
+	xaddr := append(xport, xip...)
+	return append([]byte{0, attributeFamilyIPv4}, xaddr...)
 
 }
 
@@ -66,27 +69,33 @@ func newAttrMappedAddress(remoteAddress *net.UDPAddr) *Attribute  {
 	return newAttr(AttributeMappedAddress,value)
 }
 
-func newAttrXORMappedAddress(remoteAddress *net.UDPAddr) *Attribute  {
-	port := uint16(remoteAddress.Port)
-	reflexiveAddress := remoteAddress.IP.To4()
-	//reflexiveAddress := net.ParseIP("11.11.11.11").To4()
-	xorBytes := xorAddress(port, reflexiveAddress)
+func newAttrXORMappedAddress(ip net.IP ,port int) *Attribute  {
+	return newAttr(AttributeXorMappedAddress,xorAddress(port,ip))
+}
 
-	value := append([]byte{0, attributeFamilyIPv4}, xorBytes...)
-	return newAttr(AttributeXorMappedAddress,value)
+func newAttrXORRelayedAddress(ip net.IP ,port int) *Attribute{
+	return newAttr(AttributeXorRelayedAddress,xorAddress(port,ip))
+}
+
+func newAttrXORPeerAddress(ip net.IP, port int) *Attribute {
+	return newAttr(AttributeXorPeerAddress,xorAddress(port,ip))
 }
 
 func newAttrNonce() *Attribute{
-	//fixme : 20 min expire
-	timestampBytes := make([]byte, 4)
-	timestamp := time.Now().Unix() + 20*60
-	binary.BigEndian.PutUint32(timestampBytes, uint32(timestamp^magicCookie))
-	nonce := hex.EncodeToString(timestampBytes)
-	return newAttr(AttributeNonce,str2bytes(nonce))
+	//fixme : should check nonce ?
+
+	////fixme : 20 min expire
+	//timestampBytes := make([]byte, 4)
+	//timestamp := time.Now().Unix() + 20*60
+	//binary.BigEndian.PutUint32(timestampBytes, uint32(timestamp^magicCookie))
+	//nonce := hex.EncodeToString(timestampBytes)
+
+	nonce := []byte{'h','a','n','r','u','i'}
+	return newAttr(AttributeNonce,nonce)
 }
 
 func validNonce(nonce []byte) bool{
-	step1,err  :=  hex.DecodeString(string(nonce))
+	step1,err  :=  hex.DecodeString(bytes2str(nonce))
 
 	if err != nil {
 		return  false
@@ -115,41 +124,6 @@ func newAttrError(reason []byte,code int) *Attribute  {
 	return newAttr(AttributeErrorCode,errorValue)
 }
 
-
-func getRelayAddress() (raddr string) {
-	if external_ip != nil{
-		if IsValidIPv4(*external_ip) {
-			raddr = *external_ip
-			return
-		}
-	}
-
-	ipAddress , err := HostIP()
-	if err != nil {
-		raddr = "110.110.110.110"
-		Log.Error("Can not find relay address")
-	}else{
-		raddr = ipAddress
-	}
-	return
-}
-
-func newAttrXORRelayedAddress(relay string ,rport int) *Attribute{
-	//relayedAddress := net.ParseIP("22.22.22.22").To4()
-	relayedAddress := net.ParseIP(relay).To4()
-	port := uint16(rport)
-	xorBytes := xorAddress(port, relayedAddress)
-	value := append([]byte{0, attributeFamilyIPv4}, xorBytes...)
-	return newAttr(AttributeXorRelayedAddress,value)
-}
-
-func newAttrXORPeerAddress(peer string, pport int) *Attribute {
-	relayedAddress := net.ParseIP(peer).To4()
-	port := uint16(pport)
-	xorBytes := xorAddress(port, relayedAddress)
-	value := append([]byte{0, attributeFamilyIPv4}, xorBytes...)
-	return newAttr(AttributeXorPeerAddress,value)
-}
 
 
 func newAttrLifetime() *Attribute {

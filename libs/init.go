@@ -20,6 +20,9 @@ func Init()  {
 
 	initGlobal()
 
+	RunServerApi()
+
+
 	LoadEntryModule()
 
 }
@@ -37,7 +40,7 @@ func initGlobal()  {
 	AllocateMutex = new(sync.Mutex)
 	ServerAddress = new(net.UDPAddr)
 	ServerAddress.Port = *server_port
-	ServerAddress.IP = net.ParseIP(getRelayAddress()).To4()
+	ServerAddress.IP = getRelayAddress()
 }
 
 
