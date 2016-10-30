@@ -16,8 +16,8 @@ type Attribute struct{
 }
 
 var (
-	AttrSoftware = newAttr(AttributeSoftware,[]byte("Example server, version 1.17"))
-	AttrRealm = newAttr(AttributeRealm,[]byte("realm"))
+	AttrSoftware = newAttr(AttributeSoftware,[]byte{'R','t','c','a','t'})
+	AttrRealm = newAttr(AttributeRealm,[]byte{'r','e','a','l','m'})
 	AttrError401 = newAttrError401()
 	AttrLifetime = newAttrLifetime()
 	AttrDummyMessageIntegrity = newAttrNoValue(AttributeMessageIntegrity)
@@ -82,7 +82,7 @@ func newAttrNonce() *Attribute{
 	timestamp := time.Now().Unix() + 20*60
 	binary.BigEndian.PutUint32(timestampBytes, uint32(timestamp^magicCookie))
 	nonce := hex.EncodeToString(timestampBytes)
-	return newAttr(AttributeNonce,[]byte(nonce))
+	return newAttr(AttributeNonce,str2bytes(nonce))
 }
 
 func validNonce(nonce []byte) bool{
@@ -101,15 +101,20 @@ func validNonce(nonce []byte) bool{
 }
 
 func newAttrError401() *Attribute{
-	reason := "Unauthorized"
-	error401 := make([]byte,4 + len([]byte(reason)))
-	error401[0] = 0;
-	error401[1] = 0;
-	error401[2] = uint8(401 / 100)
-	error401[3] = uint8(401 % 100)
-	error401 = append(error401[:4],[]byte(reason)...)
-	return newAttr(AttributeErrorCode,error401)
+	reason := []byte{'U','n','a','u','t','h','o','r','i','z','e','d'}
+	return newAttrError(reason,401)
 }
+
+func newAttrError(reason []byte,code int) *Attribute  {
+	errorValue := make([]byte,4)
+	errorValue[0] = 0;
+	errorValue[1] = 0;
+	errorValue[2] = uint8(code / 100)
+	errorValue[3] = uint8(code % 100)
+	errorValue = append(errorValue[:4],reason...)
+	return newAttr(AttributeErrorCode,errorValue)
+}
+
 
 func getRelayAddress() (raddr string) {
 	if external_ip != nil{
@@ -162,7 +167,7 @@ func newAttrMessageIntegrity(value []byte) *Attribute {
 
 func generateKey(username,password,realm string) []byte  {
 	hasher := md5.New()
-	hasher.Write([]byte(fmt.Sprintf("%s:%s:%s",username,realm,password)))
+	hasher.Write(str2bytes(fmt.Sprintf("%s:%s:%s",username,realm,password)))
 	key := hasher.Sum(nil)
 	return key
 }

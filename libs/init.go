@@ -45,8 +45,9 @@ func initGlobal()  {
 var (
 	App               = kingpin.New("gostun", APP_NAME)
 	config            = App.Flag("config", "Configuration file location").PlaceHolder(strings.Join(config_path_array,",")).Short('c').String()
-	server_port			  = App.Flag("port","Server port").Default("3478").Short('p').Int()
+	server_port		  = App.Flag("port","Server port").Default("3478").Short('p').Int()
 	external_ip       = App.Flag("external_ip","TURN Server public/private address mapping, if the server is behind NAT.").Short('x').String()
+	relay_ip 		  = App.Flag("relay_ip","Relay endpoint ip ").Short('r').String()
 	min_port 		  = App.Flag("min_port","Lower bound of the UDP port range for relay endpoints allocation.").Default("49152").Int()
 	max_port 		  = App.Flag("max_port","Upper bound of the UDP port range for relay endpoints allocation.").Default("65535").Int()
 

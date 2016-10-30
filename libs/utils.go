@@ -13,6 +13,7 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"time"
+	"unsafe"
 )
 
 func HmacSha1(value,key []byte) []byte {
@@ -127,4 +128,14 @@ func generateTransactionID() []byte  {
 	binary.BigEndian.PutUint32(transID[:4], magicCookie)
 	rand.Read(transID[4:])
 	return transID
+}
+
+func str2bytes(s string)[] byte  {
+	x := (*[2]uintptr)(unsafe.Pointer(&s))
+	h := [3]uintptr{x[0],x[1],x[1]}
+	return *(*[]byte)(unsafe.Pointer(&h))
+}
+
+func bytes2str(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
 }
