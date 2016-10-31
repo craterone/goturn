@@ -83,10 +83,12 @@ func (entry *Entry) handleData(raddr *net.UDPAddr, data []byte,tcp bool) {
 		switch msg.MessageType {
 		case TypeBindingRequest:
 			//todo : ignore
-		case TypeAllocate , TypeCreatePermission , TypeChannelBinding, TypeRefreshRequest:
-			response,responseError = turnMessageHandle(msg,raddr,false)
+		case TypeAllocate:
+			response,responseError = createAllocate(msg,raddr)
+		case  TypeCreatePermission , TypeChannelBinding, TypeRefreshRequest:
+			response,responseError = turnMessageHandle(msg,raddr)
 		case TypeSendIndication:
-			response,responseAddress,responseError = turnRelayMessageHandle(msg,raddr,false)
+			response,responseAddress,responseError = turnRelayMessageHandle(msg,raddr)
 
 		}
 
@@ -117,9 +119,13 @@ func (entry *Entry) handleData(raddr *net.UDPAddr, data []byte,tcp bool) {
 	case 0x11:
 		extractData := data[1:]
 
+
+		//todo merge
 		if extractData[0] == 0x40 {
 			for k,v := range GlobalAllocates {
 				if v.PeerAddress.String() == raddr.String() {
+					v.BytesSend += len(extractData) /1000
+
 					responseAddr := parseAddressV4(k)
 
 					_, err := entry.udpConn.WriteToUDP(extractData, responseAddr)
@@ -138,6 +144,8 @@ func (entry *Entry) handleData(raddr *net.UDPAddr, data []byte,tcp bool) {
 
 			for k,v := range GlobalAllocates {
 				if v.PeerAddress.String() == raddr.String() {
+					v.BytesSend += len(extractData) /1000
+
 					responseAddr := parseAddressV4(k)
 
 					respMessage := NewResponse(TypeDataIndication,msg.TransID,

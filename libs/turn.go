@@ -4,7 +4,13 @@ import (
 	"net"
 	"encoding/hex"
 	"bytes"
+	"time"
+	"encoding/binary"
 )
+
+func generatePassword(username []byte) string {
+	return hex.EncodeToString(HmacSha1(username,[]byte("passwordkey")))
+}
 
 func messageIntegrityCheck(requestMessage *Message) (err error) {
 	miAttr := requestMessage.getAttribute(AttributeMessageIntegrity)
@@ -12,8 +18,8 @@ func messageIntegrityCheck(requestMessage *Message) (err error) {
 	if miAttr != nil {
 		userAttr := requestMessage.getAttribute(AttributeUsername)
 		if userAttr != nil {
-			username := string(userAttr.Value)
-			password := hex.EncodeToString(HmacSha1(userAttr.Value,[]byte("passwordkey")))
+			username := bytes2str(userAttr.Value)
+			password := generatePassword(userAttr.Value)
 
 			//Log.Infof("password %s",password)
 			key := generateKey(username,password,"realm")
@@ -51,7 +57,7 @@ func messageIntegrityCalculate(username []byte,responseMessage *Message) (respon
 		return nil,err
 	}
 
-	password := hex.EncodeToString(HmacSha1(username,[]byte("passwordkey")))
+	password := generatePassword(username)
 
 	key := generateKey(bytes2str(username),password,"realm")
 
@@ -62,173 +68,216 @@ func messageIntegrityCalculate(username []byte,responseMessage *Message) (respon
 	return response,nil
 }
 
-func turnMessageHandle(requestMessage *Message,clientAddr *net.UDPAddr,tcp bool) ([]byte, error) {
+func createAllocate(request *Message,clientAddr *net.UDPAddr) ([]byte,error)  {
+	uAttr := request.getAttribute(AttributeUsername)
 
-	switch requestMessage.MessageType {
-	case TypeAllocate:
-		//long-term , check username
-		uAttr := requestMessage.getAttribute(AttributeUsername)
+	if uAttr != nil {
+		//check username format
+		icolon := bytes.IndexByte(uAttr.Value,':')
 
-		if uAttr != nil {
-			//check username format
-			icolon := bytes.IndexByte(uAttr.Value,':')
+		if icolon < 0 {
+			//todo : error
+		}
 
-			if icolon < 0 {
-				//todo : error
+		timestamp := strBytes2Int64(uAttr.Value[:icolon])
+		token := uAttr.Value[icolon+1:]
+
+
+		Log.Infof("timestamp : %d , username : %s",timestamp,token)
+		//fixme : check time expire
+		if timestamp < 0{
+			//todo error
+		}
+
+		err := messageIntegrityCheck(request)
+		if err != nil {
+			//todo error
+			Log.Infof("message integrity error")
+		}
+
+		rport := RelayPortPool.RandSelectPort()
+		rip := getRelayAddress()
+
+		raddress := new(net.UDPAddr)
+		raddress.Port = rport
+		raddress.IP = rip
+
+		relay := new(Relay)
+		relay.Port = rport
+		relay.ServerAddress = ServerAddress
+		relay.Serve()
+
+		allocate := new(Allocate)
+		allocate.Token = bytes2str(token)
+		allocate.ClientAddress = clientAddr
+		allocate.Relay = relay
+		allocate.PeerAddress = raddress
+		allocate.ConnectTime = 0
+		allocate.ExpiresTime = 600
+		allocate.IsExpired = false
+		allocate.ExpiresTicker = time.NewTicker(1 * time.Second)
+		allocate.BytesSend = 0
+		allocate.BytesRecv = 0
+
+		allocate.TimerRun()
+
+		clientAddrStr := clientAddr.String()
+
+		AllocateMutex.Lock()
+		GlobalAllocates[clientAddrStr] = allocate
+		AllocateMutex.Unlock()
+
+		respMsg := NewResponse(TypeAllocateResponse,request.TransID,
+			newAttrXORRelayedAddress(rip,rport),
+			newAttrXORMappedAddress(clientAddr.IP.To4(),clientAddr.Port),
+			AttrLifetime,
+			AttrSoftware,
+			AttrDummyMessageIntegrity,
+		)
+
+
+		response,err := messageIntegrityCalculate(uAttr.Value,respMsg)
+
+		return response,err
+
+	}else{
+		// 401 error
+		respMsg := NewResponse(TypeAllocateErrorResponse,request.TransID,
+			AttrNonce,
+			AttrRealm,
+			AttrError401,
+			AttrSoftware,
+		)
+
+		response, err := Marshal(respMsg,false)
+
+		if err != nil {
+			return nil,err
+		}
+		return response,nil
+	}
+}
+
+func turnMessageHandle(requestMessage *Message,clientAddr *net.UDPAddr) ([]byte, error) {
+
+	clientAddress := clientAddr.String()
+
+	allocate := GlobalAllocates[clientAddress]
+
+	Log.Info(requestMessage)
+	if allocate != nil {
+		switch requestMessage.MessageType {
+
+		case TypeCreatePermission:
+
+
+
+			//err := messageIntegrityCheck(requestMessage)
+			//
+			//if err != nil {
+			//	Log.Infof("message integrity error")
+			//}
+
+			if allocate != nil {
+				if allocate.Relay != nil {
+					peerAddress := requestMessage.getAttribute(AttributeXorPeerAddress)
+
+					if peerAddress != nil {
+						port, address := unXorAddress(peerAddress.Value)
+						//relayAddress := fmt.Sprintf("%s:%d",net.IP(address),port)
+
+						relayAddress := new(net.UDPAddr)
+						relayAddress.Port = int(port)
+						relayAddress.IP = address
+
+						allocate.Relay.RelayAddress = relayAddress
+
+
+						Log.Infof("relay address : %s , peer addres : %s",relayAddress,allocate.PeerAddress.String())
+					}
+				}
 			}
 
-			timestamp := strBytes2Int64(uAttr.Value[:icolon])
-			token := uAttr.Value[icolon+1:]
-
-
-			Log.Infof("timestamp : %d , username : %s",timestamp,token)
-			//fixme : check time expire
-			if timestamp < 0{
-				//todo error
-			}
-
-			err := messageIntegrityCheck(requestMessage)
-			if err != nil {
-				//todo error
-				Log.Infof("message integrity error")
-			}
-
-			rport := RelayPortPool.RandSelectPort()
-			rip := getRelayAddress()
-
-			raddress := new(net.UDPAddr)
-			raddress.Port = rport
-			raddress.IP = rip
-
-			peer := new(Peer)
-			peer.Port = rport
-			peer.ServerAddress = ServerAddress
-			peer.Serve()
-
-			allocate := new(Allocate)
-			allocate.Token = bytes2str(token)
-			allocate.ClientAddress = clientAddr
-			allocate.Peer = peer
-			allocate.PeerAddress = raddress
-
-			clientAddrStr := clientAddr.String()
-
-			AllocateMutex.Lock()
-			GlobalAllocates[clientAddrStr] = allocate
-			AllocateMutex.Unlock()
-
-			respMsg := NewResponse(TypeAllocateResponse,requestMessage.TransID,
-				newAttrXORRelayedAddress(rip,rport),
-				newAttrXORMappedAddress(clientAddr.IP.To4(),clientAddr.Port),
-				AttrLifetime,
+			respMsg := NewResponse(TypeCreatePermissionResponse,requestMessage.TransID,
 				AttrSoftware,
 				AttrDummyMessageIntegrity,
 			)
 
+			originUsername := requestMessage.getAttribute(AttributeUsername)
 
-			response,err := messageIntegrityCalculate(uAttr.Value,respMsg)
-
+			response ,err := messageIntegrityCalculate(originUsername.Value,respMsg)
 			return response,err
+		case TypeChannelBinding:
 
-		}else{
-			// 401 error
-			respMsg := NewResponse(TypeAllocateErrorResponse,requestMessage.TransID,
-				AttrNonce,
-				AttrRealm,
-				AttrError401,
+			//err := messageIntegrityCheck(requestMessage)
+			//
+			//if err != nil {
+			//	Log.Infof("message integrity error")
+			//}
+
+			respMsg := NewResponse(TypeChannelBindingResponse,requestMessage.TransID,
 				AttrSoftware,
+				AttrDummyMessageIntegrity,
 			)
 
-			response, err := Marshal(respMsg,false)
+			originUsername := requestMessage.getAttribute(AttributeUsername)
 
-			if err != nil {
-				return nil,err
-			}
-			return response,nil
-		}
-	case TypeCreatePermission:
+			response ,err := messageIntegrityCalculate(originUsername.Value,respMsg)
+			return response,err
+		case TypeRefreshRequest:
 
-		clientAddress := clientAddr.String()
+			//err := messageIntegrityCheck(requestMessage)
+			//
+			//if err != nil {
+			//	Log.Infof("message integrity error")
+			//}
 
-		allocate := GlobalAllocates[clientAddress]
+			var respMsg *Message
+			lifeAttr := requestMessage.getAttribute(AttributeLifetime)
 
-		err := messageIntegrityCheck(requestMessage)
+			if lifeAttr != nil {
+				lifetime := binary.BigEndian.Uint32(lifeAttr.Value)
+				if  lifetime > 0{
+					allocate.ExpiresTime = 600
 
-		if err != nil {
-			Log.Infof("message integrity error")
-		}
+					respMsg = NewResponse(TypeRefreshResponse,requestMessage.TransID,
+						AttrSoftware,
+						AttrLifetime,
+						AttrDummyMessageIntegrity,
+					)
+				}else if lifetime == 0 {
+					allocate.ExpiresTime = 0
 
-		if allocate != nil {
-			if allocate.Peer != nil {
-				peerAddress := requestMessage.getAttribute(AttributeXorPeerAddress)
-
-				if peerAddress != nil {
-					port, address := unXorAddress(peerAddress.Value)
-					//relayAddress := fmt.Sprintf("%s:%d",net.IP(address),port)
-
-					relayAddress := new(net.UDPAddr)
-					relayAddress.Port = int(port)
-					relayAddress.IP = address
-
-					allocate.Peer.RelayAddress = relayAddress
-
-
-					Log.Infof("relay address : %s , peer addres : %s",relayAddress,allocate.PeerAddress.String())
+					respMsg = NewResponse(TypeRefreshResponse,requestMessage.TransID,
+						AttrSoftware,
+						AttrDummyMessageIntegrity,
+					)
 				}
+			}else{
+				allocate.ExpiresTime = 600
+
+				respMsg = NewResponse(TypeRefreshResponse,requestMessage.TransID,
+					AttrSoftware,
+					AttrLifetime,
+					AttrDummyMessageIntegrity,
+				)
 			}
+
+
+
+			originUsername := requestMessage.getAttribute(AttributeUsername)
+
+			response ,err := messageIntegrityCalculate(originUsername.Value,respMsg)
+			return response,err
+
 		}
-
-		respMsg := NewResponse(TypeCreatePermissionResponse,requestMessage.TransID,
-			AttrSoftware,
-			AttrDummyMessageIntegrity,
-		)
-
-		originUsername := requestMessage.getAttribute(AttributeUsername)
-
-		response ,err := messageIntegrityCalculate(originUsername.Value,respMsg)
-		return response,err
-	case TypeChannelBinding:
-
-		err := messageIntegrityCheck(requestMessage)
-
-		if err != nil {
-			Log.Infof("message integrity error")
-		}
-
-		respMsg := NewResponse(TypeChannelBindingResponse,requestMessage.TransID,
-			AttrSoftware,
-			AttrDummyMessageIntegrity,
-		)
-
-		originUsername := requestMessage.getAttribute(AttributeUsername)
-
-		response ,err := messageIntegrityCalculate(originUsername.Value,respMsg)
-		return response,err
-	case TypeRefreshRequest:
-
-		err := messageIntegrityCheck(requestMessage)
-
-		if err != nil {
-			Log.Infof("message integrity error")
-		}
-
-		respMsg := NewResponse(TypeRefreshResponse,requestMessage.TransID,
-			AttrSoftware,
-			newAttrLifetime(),
-			AttrDummyMessageIntegrity,
-		)
-
-		originUsername := requestMessage.getAttribute(AttributeUsername)
-
-		response ,err := messageIntegrityCalculate(originUsername.Value,respMsg)
-		return response,err
-
 	}
+
 
 	return nil,nil
 }
 
-func turnRelayMessageHandle(requestMessage *Message,clientAddr *net.UDPAddr,tcp bool) ([]byte, *net.UDPAddr,error) {
+func turnRelayMessageHandle(requestMessage *Message,clientAddr *net.UDPAddr) ([]byte, *net.UDPAddr,error) {
 
 	switch requestMessage.MessageType {
 	case TypeSendIndication:
@@ -238,14 +287,17 @@ func turnRelayMessageHandle(requestMessage *Message,clientAddr *net.UDPAddr,tcp 
 
 		allocate := GlobalAllocates[clientAddress]
 
-		if allocate.Peer != nil{
+		if allocate != nil {
+			if allocate.Relay != nil{
 
-			requestMessage.setAttribute(newAttrXORPeerAddress(allocate.PeerAddress.IP.To4(),allocate.PeerAddress.Port))
+				requestMessage.setAttribute(newAttrXORPeerAddress(allocate.PeerAddress.IP.To4(),allocate.PeerAddress.Port))
 
-			response, err := Marshal(requestMessage,false)
+				response, err := Marshal(requestMessage,false)
 
-			return response,allocate.PeerAddress,err
+				return response,allocate.PeerAddress,err
+			}
 		}
+
 	}
 	return nil,nil,nil
 }

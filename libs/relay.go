@@ -6,15 +6,15 @@ import (
 	"log"
 )
 
-//peer
-type Peer struct {
+//relay
+type Relay struct {
 	Port       int
 	connection *net.UDPConn
 	RelayAddress *net.UDPAddr
 	ServerAddress *net.UDPAddr
 }
 
-func (s *Peer) serve() {
+func (s *Relay) serve() {
 	for {
 		var buf = make([]byte, 2048)
 		size, remoteAddr, err := s.connection.ReadFromUDP(buf)
@@ -26,7 +26,7 @@ func (s *Peer) serve() {
 }
 
 //Serve initiates a UDP connection that listens on any port for incoming data
-func (s *Peer) Serve() {
+func (s *Relay) Serve() {
 	laddr, err := net.ResolveUDPAddr("udp", ":"+strconv.Itoa(s.Port))
 	if err != nil {
 		log.Fatal(err)
@@ -38,7 +38,7 @@ func (s *Peer) Serve() {
 	go s.serve()
 }
 
-func (s *Peer) handleData(raddr *net.UDPAddr, data []byte) {
+func (s *Relay) handleData(raddr *net.UDPAddr, data []byte) {
 
 	switch data[0] {
 	//from client or 3478
@@ -61,6 +61,7 @@ func (s *Peer) handleData(raddr *net.UDPAddr, data []byte) {
 					Log.Warning(err)
 				}
 			}else{
+				//fixme firefox drop packet
 				Log.Infof("ffffff")
 			}
 

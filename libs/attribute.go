@@ -259,7 +259,7 @@ func (a Attribute) String() string {
 	case AttributeLifetime:
 		attrString = fmt.Sprintf("	attr: type -> %s , length -> %d , value -> %d \n",
 			AttrTypeToString(a.AttrType), a.Length,  binary.BigEndian.Uint32(a.Value) )
-	case AttributeMessageIntegrity,AttributeFingerprint:
+	case AttributeMessageIntegrity,AttributeFingerprint,AttributeChannelNumber:
 		attrString = fmt.Sprintf("	attr: type -> %s , length -> %d , value -> %x \n",
 			AttrTypeToString(a.AttrType), a.Length,  a.Value )
 	case AttributeXorPeerAddress:

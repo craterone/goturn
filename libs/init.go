@@ -53,7 +53,6 @@ var (
 	relay_ip 		  = App.Flag("relay_ip","Relay endpoint ip ").Short('r').String()
 	min_port 		  = App.Flag("min_port","Lower bound of the UDP port range for relay endpoints allocation.").Default("49152").Int()
 	max_port 		  = App.Flag("max_port","Upper bound of the UDP port range for relay endpoints allocation.").Default("65535").Int()
-
 )
 
 

@@ -169,6 +169,11 @@ func (m Message) TypeToString() (typeString string)  {
 		typeString = "SendIndication"
 	case TypeRefreshRequest:
 		typeString = "RefreshRequest"
+	case TypeChannelBinding:
+		typeString = "ChannelBinding"
+	case TypeCreatePermission:
+		typeString = "CreatePermission"
+
 	default:
 		stringByte := make([]byte,2)
 		binary.BigEndian.PutUint16(stringByte,m.MessageType)

@@ -5,7 +5,6 @@ import (
 	"time"
 	"strings"
 	"encoding/json"
-	"fmt"
 )
 
 type customHandler struct{
@@ -13,6 +12,7 @@ type customHandler struct{
 }
 
 func(cb *customHandler) ServeHTTP( w http.ResponseWriter, r *http.Request ) {
+	w.Header().Set("Content-Type", "application/json")
 
 	switch {
 	case strings.HasPrefix(r.URL.Path, "/all") :
@@ -24,10 +24,8 @@ func(cb *customHandler) ServeHTTP( w http.ResponseWriter, r *http.Request ) {
 			Log.Infof("server api error : %v",e)
 		}
 	case strings.HasPrefix(r.URL.Path, "/token/"):
-		fmt.Println("customHandler!!");
 		w.Write([]byte("customHandler!!"));
 	default:
-		fmt.Println("customHandler!!");
 		w.Write([]byte("customHandler!!"));
 
 	}
