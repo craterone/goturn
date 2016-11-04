@@ -20,7 +20,6 @@ var (
 )
 
 type Configuration struct {
-	Realm string
 
 	LogLevel string `json:"logLevel"`
 

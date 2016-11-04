@@ -124,7 +124,7 @@ func (entry *Entry) handleData(raddr *net.UDPAddr, data []byte,tcp bool) {
 		if extractData[0] == 0x40 {
 			for k,v := range GlobalAllocates {
 				if v.PeerAddress.String() == raddr.String() {
-					v.BytesSend += len(extractData) /1000
+					v.BytesSend += float64(len(extractData)) /1000
 
 					responseAddr := parseAddressV4(k)
 
@@ -144,7 +144,7 @@ func (entry *Entry) handleData(raddr *net.UDPAddr, data []byte,tcp bool) {
 
 			for k,v := range GlobalAllocates {
 				if v.PeerAddress.String() == raddr.String() {
-					v.BytesSend += len(extractData) /1000
+					v.BytesSend += float64(len(extractData)) /1000
 
 					responseAddr := parseAddressV4(k)
 
@@ -172,6 +172,10 @@ func (entry *Entry) handleData(raddr *net.UDPAddr, data []byte,tcp bool) {
 		allocate := GlobalAllocates[clientAddress]
 
 		if allocate != nil {
+			//fixme received byte
+			allocate.BytesRecv += float64(len(data)) /1000
+
+
 			_, err := entry.udpConn.WriteToUDP(data, allocate.PeerAddress)
 			if err != nil {
 				Log.Warning(err)

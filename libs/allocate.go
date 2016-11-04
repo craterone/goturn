@@ -19,8 +19,8 @@ type Allocate struct {
 	IsExpired bool
 	ExpiresTicker *time.Ticker `json:"-"`
 
-	BytesRecv int
-	BytesSend int
+	BytesRecv float64
+	BytesSend float64
 }
 
 func (a *Allocate)TimerRun()  {

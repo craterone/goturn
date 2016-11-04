@@ -9,7 +9,7 @@ import (
 )
 
 func generatePassword(username []byte) string {
-	return hex.EncodeToString(HmacSha1(username,[]byte("passwordkey")))
+	return hex.EncodeToString(HmacSha1(username,[]byte(*secret)))
 }
 
 func messageIntegrityCheck(requestMessage *Message) (err error) {
@@ -30,7 +30,7 @@ func messageIntegrityCheck(requestMessage *Message) (err error) {
 			if err == nil {
 				calculateMi := MessageIntegrityHmac(requestValue,key)
 
-				Log.Infof("origin %x , after %x ",miAttr.Value,calculateMi)
+				//Log.Infof("origin %x , after %x ",miAttr.Value,calculateMi)
 
 				if(!bytes.Equal(calculateMi,miAttr.Value)){
 					//todo : not equal
@@ -164,7 +164,7 @@ func turnMessageHandle(requestMessage *Message,clientAddr *net.UDPAddr) ([]byte,
 
 	allocate := GlobalAllocates[clientAddress]
 
-	Log.Info(requestMessage)
+	//Log.Info(requestMessage)
 	if allocate != nil {
 		switch requestMessage.MessageType {
 
@@ -288,6 +288,9 @@ func turnRelayMessageHandle(requestMessage *Message,clientAddr *net.UDPAddr) ([]
 		allocate := GlobalAllocates[clientAddress]
 
 		if allocate != nil {
+			allocate.BytesRecv += float64((requestMessage.MessageLength + 20)) /1000
+
+
 			if allocate.Relay != nil{
 
 				requestMessage.setAttribute(newAttrXORPeerAddress(allocate.PeerAddress.IP.To4(),allocate.PeerAddress.Port))
