@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"time"
 	"encoding/binary"
+	"github.com/pkg/errors"
 )
 
 func generatePassword(username []byte) string {
@@ -76,7 +77,7 @@ func createAllocate(request *Message,clientAddr *net.UDPAddr) ([]byte,error)  {
 		icolon := bytes.IndexByte(uAttr.Value,':')
 
 		if icolon < 0 {
-			//todo : error
+			return nil,errors.New("uknown username")
 		}
 
 		timestamp := strBytes2Int64(uAttr.Value[:icolon])
