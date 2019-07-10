@@ -2,8 +2,6 @@
 ```
 usage: gostun [<flags>]
 
-实时猫 TURN/STUN 服务器
-
 Flags:
   -h, --help                     Show context-sensitive help (also try --help-long and --help-man).
   -c, --config=config.json,/etc/goturn/config.json
